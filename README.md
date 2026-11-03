@@ -34,7 +34,7 @@ end
 
 def deps do
   [
-    {:lucidex, "~> 0.1.0"}
+    {:lucidex, "~> 0.2.0"}
   ]
 end
 ```
