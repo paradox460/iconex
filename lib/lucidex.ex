@@ -56,8 +56,17 @@ defmodule Lucidex do
   (at `:output_path`) and re-reads it whenever the compiler rewrites it.
   Without `:otp_app` it embeds every icon.
 
-  `:delivery`, `:sprite_url` and `:icon_nodes_path` are read at compile time,
-  so run `mix deps.compile lucidex --force` after changing them.
+  `:delivery`, `:sprite_url`, `:stroke_width` and `:icon_nodes_path` are read at
+  compile time, so run `mix deps.compile lucidex --force` after changing them.
+
+  ## Stroke width
+
+  Every icon is drawn at stroke width `2`, Lucide's own, unless the `stroke_width`
+  attribute says otherwise. Set an app-wide default with:
+
+      config :lucidex, stroke_width: 1.5
+
+  The width is in the 24-unit viewBox, so it scales with the icon.
 
   ## Serving the static file
 
@@ -121,6 +130,13 @@ defmodule Lucidex do
           "config :lucidex, :delivery must be :inline or :external, got: #{inspect(@delivery)}"
   end
 
+  @stroke_width Application.compile_env(:lucidex, :stroke_width, 2)
+
+  unless is_number(@stroke_width) and @stroke_width > 0 do
+    raise ArgumentError,
+          "config :lucidex, :stroke_width must be a positive number, got: #{inspect(@stroke_width)}"
+  end
+
   @doc """
   Renders a Lucide icon.
 
@@ -129,7 +145,8 @@ defmodule Lucidex do
   * `name` (required) kebab-case icon name, e.g. `"house"`, `"arrow-up-right"`
   * `size` integer pixel size applied to `width` and `height` (default `24`)
   * `class` CSS class string
-  * `stroke_width` integer stroke width (default `2`)
+  * `stroke_width` stroke width, any positive number (default `2`, or
+    `config :lucidex, :stroke_width`)
   * Any other attribute is forwarded to the outer `<svg>` element.
 
   ## Examples
@@ -140,7 +157,7 @@ defmodule Lucidex do
   attr :name, :string, required: true
   attr :size, :integer, default: 24
   attr :class, :string, default: nil
-  attr :stroke_width, :integer, default: 2
+  attr :stroke_width, :any, default: @stroke_width
   attr :rest, :global
 
   def icon(%{name: name} = assigns) do
@@ -257,10 +274,13 @@ defmodule Lucidex do
           {:ok, nodes} ->
             inner = render_nodes(nodes)
 
+            # No stroke-width here: a <symbol>'s presentation attributes bind the
+            # cloned content and would override the width the outer <svg> passes
+            # down, making `icon/1`'s `stroke_width` a no-op.
             """
               <symbol id="lucide-#{escape(name)}" viewBox="0 0 24 24"
                       fill="none" stroke="currentColor"
-                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      stroke-linecap="round" stroke-linejoin="round">
                 #{inner}
               </symbol>
             """

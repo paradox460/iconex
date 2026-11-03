@@ -34,6 +34,13 @@ defmodule LucidexTest do
       refute svg =~ ~s(id="lucide-a")
       refute svg =~ "missing"
     end
+
+    # A width on the <symbol> would override the one `icon/1` sets on the outer <svg>.
+    test "leaves the stroke width to the referencing icon" do
+      svg = Lucidex.build_sprite(["a"], %{"a" => [["path", %{"d" => "A"}]]})
+
+      refute svg =~ "stroke-width"
+    end
   end
 
   describe "icon/1 with the default :external delivery" do

@@ -147,7 +147,9 @@ defmodule Mix.Tasks.Compile.Lucidex do
       unknown != [] ->
         {:error, skipped ++ unknown}
 
-      icons == manifest[:icons] and File.exists?(out) ->
+      # Same icons is not enough: new settings (a lucidex upgrade, which can change the sprite's
+      # markup, or new icon data) must rewrite it.
+      icons == manifest[:icons] and manifest[:settings] == settings and File.exists?(out) ->
         write_manifest(settings, beams, refs_by_beam, icons)
         {:noop, skipped}
 

@@ -136,6 +136,23 @@ defmodule Mix.Tasks.Compile.LucidexTest do
     end)
   end
 
+  test "rewrites the sprite when settings change though the icons do not", %{root: root} do
+    data = Lucidex.icon_data_path()
+    {:ok, %File.Stat{mtime: mtime}} = File.stat(data, time: :posix)
+    on_exit(fn -> File.touch!(data, mtime) end)
+
+    in_fixture(root, fn ->
+      Application.put_env(:lucidex, :extra_icons, ["house"])
+      assert {:ok, []} = run()
+
+      File.write!(sprite(), "<svg>stale</svg>")
+      File.touch!(data, mtime + 60)
+
+      assert {:ok, []} = run()
+      assert symbols() == ["house"]
+    end)
+  end
+
   test "warns about modules compiled without debug info", %{root: root} do
     in_fixture(root, fn ->
       compile!(

@@ -56,7 +56,8 @@ delivery it renders nothing, but it's what makes inline delivery work:
 <Lucidex.icon name="arrow-up-right" size={20} class="text-zinc-500" />
 ```
 
-Any other attribute is passed to the outer `<svg>`. Names are the kebab-case
+Any other attribute is passed to the outer `<svg>`. `stroke_width` takes any
+positive number (`2` by default, or `config :lucidex, stroke_width: 1.5`). Names are the kebab-case
 names from [lucide.dev/icons](https://lucide.dev/icons/). `import Lucidex` lets
 you write `<.icon name="house" />`; the compiler finds those calls too, and
 ignores other `icon` components such as the one in Phoenix's generated
@@ -95,6 +96,7 @@ without a server restart. `:delivery` is read when lucidex compiles, so run
 | `:otp_app` | none; inline mode then embeds every icon | runtime |
 | `:output_path` | `"priv/static/images/lucide.svg"` | build |
 | `:sprite_url` | `"/images/lucide.svg"` | compile time |
+| `:stroke_width` | `2` | compile time |
 | `:extra_icons` | `[]` | build |
 | `:icon_nodes_path` | the copy bundled with lucidex | compile time |
 
