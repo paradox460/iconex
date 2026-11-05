@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.Compile.Lucidex do
+defmodule Mix.Tasks.Compile.Iconex do
   @moduledoc """
   A Mix compiler that finds the icons your compiled code uses and writes a
   pruned SVG sprite containing only those icons. Tree-shaking, but without all
@@ -8,30 +8,30 @@ defmodule Mix.Tasks.Compile.Lucidex do
   compilation:
 
       # mix.exs
-      compilers: Mix.compilers() ++ [:lucidex]
+      compilers: Mix.compilers() ++ [:iconex]
 
-  The sprite is written to `priv/static/images/lucide.svg` in the current
-  project, which Phoenix's `Plug.Static` serves at `/images/lucide.svg`.
+  The sprite is written to `priv/static/images/iconex.svg` in the current
+  project, which Phoenix's `Plug.Static` serves at `/images/iconex.svg`.
 
   ## Dynamic icon names
 
-  For most usage, simply calling `Lucidex.icon/1` with a literal string is sufficient. However, if icon names are dynamically constructed at runtime (such as a conditional on which icon to display), you must "hint" the compiler with `Lucidex.lucidex_hint/1`.
+  For most usage, simply calling `Iconex.icon/1` with a literal string is sufficient. However, if icon names are dynamically constructed at runtime (such as a conditional on which icon to display), you must "hint" the compiler with `Iconex.hint/1`.
 
-  See `Lucidex.lucidex_hint/1` for more details.
+  See `Iconex.hint/1` for more details.
 
   ## What gets found
 
-  Every call to `Lucidex.icon/1` whose `name` is a literal string, however it
-  was written: `<Lucidex.icon name="house" />`, `<.icon name={"house"} />`
-  through `import Lucidex`, an alias, or a template loaded with
+  Every call to `Iconex.icon/1` whose `name` is a literal string, however it
+  was written: `<Iconex.icon name="house" />`, `<.icon name={"house"} />`
+  through `import Iconex`, an alias, or a template loaded with
   `embed_templates`. Calls to other `icon` components, such as the one in a
   generated Phoenix `CoreComponents`, are not counted.
 
   Names only known at runtime, such as `name={@icon}`, are invisible at build
   time. List them in `:extra_icons` or pass a literal list to
-  `Lucidex.lucidex_hint/1`:
+  `Iconex.hint/1`:
 
-      Lucidex.lucidex_hint(["chevron-up", "chevron-down"])
+      Iconex.hint(["chevron-up", "chevron-down"])
 
   A name that doesn't exist in the Lucide dataset fails the build, pointing at
   the file and line that referenced it.
@@ -42,12 +42,12 @@ defmodule Mix.Tasks.Compile.Lucidex do
   ## Configuration
 
       # config/config.exs
-      config :lucidex,
+      config :iconex,
         # Extra icon names to always include (for fully dynamic usages)
         extra_icons: ~w[loader circle x],
 
         # Where the sprite is written, relative to the project root
-        output_path: "priv/static/images/lucide.svg"
+        output_path: "priv/static/images/iconex.svg"
 
   ## Recompilation
 
@@ -60,9 +60,9 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
   @shortdoc "Generates a pruned Lucide SVG sprite from your compiled code"
 
-  @manifest_vsn 4
-  @manifest_name "lucidex"
-  @default_output "priv/static/images/lucide.svg"
+  @manifest_vsn 1
+  @manifest_name "iconex"
+  @default_output "priv/static/images/iconex.svg"
 
   @impl true
   def manifests, do: [manifest_path()]
@@ -83,13 +83,13 @@ defmodule Mix.Tasks.Compile.Lucidex do
   end
 
   defp run_checked(args) do
-    data_path = Lucidex.icon_data_path()
+    data_path = Iconex.icon_data_path()
 
     if File.exists?(data_path) do
       out = sprite_path()
-      extra = Application.get_env(:lucidex, :extra_icons, [])
+      extra = Application.get_env(:iconex, :extra_icons, [])
       beams = beam_stats()
-      settings = {Application.spec(:lucidex, :vsn), stat(data_path), extra, out}
+      settings = {Application.spec(:iconex, :vsn), stat(data_path), extra, out}
       manifest = if "--force" in args, do: %{}, else: read_manifest()
 
       if manifest[:settings] == settings and manifest[:beams] == beams and File.exists?(out) do
@@ -101,7 +101,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
       fail([
         diagnostic(
           :error,
-          "Lucidex: icon data not found at #{data_path}. Run `mix lucidex.download`.",
+          "Iconex: icon data not found at #{data_path}. Run `mix iconex.download`.",
           nil,
           0
         )
@@ -124,7 +124,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
     skipped =
       for {path, {:skipped, message}} <- refs_by_beam do
-        diagnostic(:warning, "Lucidex: skipped #{Path.relative_to_cwd(path)}: #{message}", nil, 0)
+        diagnostic(:warning, "Iconex: skipped #{Path.relative_to_cwd(path)}: #{message}", nil, 0)
       end
 
     all_icons = data_path |> File.read!() |> JSON.decode!()
@@ -147,7 +147,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
       unknown != [] ->
         {:error, skipped ++ unknown}
 
-      # Same icons is not enough: new settings (a lucidex upgrade, which can change the sprite's
+      # Same icons is not enough: new settings (a iconex upgrade, which can change the sprite's
       # markup, or new icon data) must rewrite it.
       icons == manifest[:icons] and manifest[:settings] == settings and File.exists?(out) ->
         write_manifest(settings, beams, refs_by_beam, icons)
@@ -155,12 +155,12 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
       true ->
         File.mkdir_p!(Path.dirname(out))
-        File.write!(out, Lucidex.build_sprite(icons, all_icons))
+        File.write!(out, Iconex.build_sprite(icons, all_icons))
         write_manifest(settings, beams, refs_by_beam, icons)
 
         Mix.shell().info([
           :green,
-          "Lucidex ",
+          "Iconex ",
           :reset,
           "generated sprite with #{length(icons)} icon(s) → #{Path.relative_to_cwd(out)}"
         ])
@@ -173,14 +173,14 @@ defmodule Mix.Tasks.Compile.Lucidex do
   # that lags one build behind, so refuse to run before :elixir.
   defp order_error do
     compilers = Mix.Task.Compiler.compilers()
-    lucidex = Enum.find_index(compilers, &(&1 == :lucidex))
+    iconex = Enum.find_index(compilers, &(&1 == :iconex))
     elixir = Enum.find_index(compilers, &(&1 == :elixir))
 
-    if lucidex && elixir && lucidex < elixir do
+    if iconex && elixir && iconex < elixir do
       diagnostic(
         :error,
-        "Lucidex: the :lucidex compiler must run after :elixir. " <>
-          "In mix.exs, use: compilers: Mix.compilers() ++ [:lucidex]",
+        "Iconex: the :iconex compiler must run after :elixir. " <>
+          "In mix.exs, use: compilers: Mix.compilers() ++ [:iconex]",
         nil,
         0
       )
@@ -223,10 +223,10 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
   defp collect_form(form, {file, refs}), do: {file, walk(form, file, refs)}
 
-  # HEEx compiles every <Lucidex.icon ...> / <.icon ...> to a call whose
-  # arguments are a capture of Lucidex.icon/1 followed by the assigns map.
+  # HEEx compiles every <Iconex.icon ...> / <.icon ...> to a call whose
+  # arguments are a capture of Iconex.icon/1 followed by the assigns map.
   defp walk(
-         {:call, _, {:remote, _, {:atom, _, Lucidex}, {:atom, _, :lucidex_hint}}, [list]} = call,
+         {:call, _, {:remote, _, {:atom, _, Iconex}, {:atom, _, :hint}}, [list]} = call,
          file,
          refs
        ) do
@@ -251,7 +251,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
   defp icon_args(
          [
-           {:fun, anno, {:function, {:atom, _, Lucidex}, {:atom, _, :icon}, {:integer, _, 1}}},
+           {:fun, anno, {:function, {:atom, _, Iconex}, {:atom, _, :icon}, {:integer, _, 1}}},
            {:map, _, fields} | _
          ],
          file
@@ -282,7 +282,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
   defp unknown_icon(name, nil, _line) do
     diagnostic(
       :error,
-      "Lucidex: unknown icon #{inspect(name)} in config :lucidex, :extra_icons. " <>
+      "Iconex: unknown icon #{inspect(name)} in config :iconex, :extra_icons. " <>
         "Check the spelling against https://lucide.dev/icons/",
       nil,
       0
@@ -292,7 +292,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
   defp unknown_icon(name, file, line) do
     diagnostic(
       :error,
-      "Lucidex: unknown icon #{inspect(name)}. Check the spelling against https://lucide.dev/icons/",
+      "Iconex: unknown icon #{inspect(name)}. Check the spelling against https://lucide.dev/icons/",
       file,
       line
     )
@@ -300,7 +300,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
 
   defp diagnostic(severity, message, file, line) do
     %Mix.Task.Compiler.Diagnostic{
-      compiler_name: "lucidex",
+      compiler_name: "iconex",
       severity: severity,
       message: message,
       file: file && Path.expand(file),
@@ -310,7 +310,7 @@ defmodule Mix.Tasks.Compile.Lucidex do
   end
 
   defp sprite_path do
-    Path.expand(Application.get_env(:lucidex, :output_path, @default_output))
+    Path.expand(Application.get_env(:iconex, :output_path, @default_output))
   end
 
   defp manifest_path do

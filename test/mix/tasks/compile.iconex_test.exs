@@ -1,13 +1,13 @@
-defmodule Mix.Tasks.Compile.LucidexTest do
+defmodule Mix.Tasks.Compile.IconexTest do
   use ExUnit.Case, async: false
 
-  alias Mix.Tasks.Compile.Lucidex, as: Compiler
+  alias Mix.Tasks.Compile.Iconex, as: Compiler
 
   # Each test runs inside a throwaway Mix project. Fixture modules are
   # compiled in this VM, so real HEEx output is scanned, and their .beam
   # files are written to the project's compile path, as `mix compile` would.
   setup do
-    root = Path.join(System.tmp_dir!(), "lucidex-compiler-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "iconex-compiler-#{System.unique_integer([:positive])}")
     File.mkdir_p!(root)
     Mix.shell(Mix.Shell.Process)
 
@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Compile.LucidexTest do
       Mix.shell(Mix.Shell.IO)
 
       for key <- [:extra_icons, :output_path],
-          do: Application.delete_env(:lucidex, key)
+          do: Application.delete_env(:iconex, key)
 
       File.rm_rf!(root)
     end)
@@ -28,14 +28,14 @@ defmodule Mix.Tasks.Compile.LucidexTest do
       compile!("""
       defmodule Fixture.Page do
         use Phoenix.Component
-        import Lucidex, only: [icon: 1]
-        alias Lucidex, as: L
+        import Iconex, only: [icon: 1]
+        alias Iconex, as: L
 
-        def remote(assigns), do: ~H[<Lucidex.icon name="house" />]
+        def remote(assigns), do: ~H[<Iconex.icon name="house" />]
         def imported(assigns), do: ~H[<.icon name={"zap"} class="x" />]
         def aliased(assigns), do: ~H[<L.icon name="circle" />]
-        def dynamic(assigns), do: ~H[<Lucidex.icon name={@icon} />]
-        def hinted, do: Lucidex.lucidex_hint(~w[chevron-up chevron-down])
+        def dynamic(assigns), do: ~H[<Iconex.icon name={@icon} />]
+        def hinted, do: Iconex.hint(~w[chevron-up chevron-down])
       end
       """)
 
@@ -57,12 +57,12 @@ defmodule Mix.Tasks.Compile.LucidexTest do
         use Phoenix.Component
         import Fixture.CoreComponents
 
-        @moduledoc ~S(<Lucidex.icon name="mail" />)
+        @moduledoc ~S(<Iconex.icon name="mail" />)
         def page(assigns) do
           ~H\"\"\"
           <.icon name="hero-x-mark" />
           <input name="search" />
-          <Lucidex.icon name="house" />
+          <Iconex.icon name="house" />
           \"\"\"
         end
       end
@@ -84,8 +84,8 @@ defmodule Mix.Tasks.Compile.LucidexTest do
 
           def page(assigns) do
             ~H\"\"\"
-            <Lucidex.icon name="house" />
-            <Lucidex.icon name="hous" />
+            <Iconex.icon name="house" />
+            <Iconex.icon name="hous" />
             \"\"\"
           end
         end
@@ -103,10 +103,10 @@ defmodule Mix.Tasks.Compile.LucidexTest do
 
   test "unknown names in :extra_icons fail the build", %{root: root} do
     in_fixture(root, fn ->
-      Application.put_env(:lucidex, :extra_icons, ["zapp"])
+      Application.put_env(:iconex, :extra_icons, ["zapp"])
 
       assert {:error, [diagnostic]} = run()
-      assert diagnostic.message =~ ~s(unknown icon "zapp" in config :lucidex, :extra_icons)
+      assert diagnostic.message =~ ~s(unknown icon "zapp" in config :iconex, :extra_icons)
     end)
   end
 
@@ -114,12 +114,12 @@ defmodule Mix.Tasks.Compile.LucidexTest do
     in_fixture(root, fn ->
       compile!(~S|defmodule Fixture.A do
         use Phoenix.Component
-        def a(assigns), do: ~H[<Lucidex.icon name="house" />]
+        def a(assigns), do: ~H[<Iconex.icon name="house" />]
       end|)
 
       compile!(~S|defmodule Fixture.B do
         use Phoenix.Component
-        def b(assigns), do: ~H[<Lucidex.icon name="zap" />]
+        def b(assigns), do: ~H[<Iconex.icon name="zap" />]
       end|)
 
       assert {:ok, []} = run()
@@ -137,12 +137,12 @@ defmodule Mix.Tasks.Compile.LucidexTest do
   end
 
   test "rewrites the sprite when settings change though the icons do not", %{root: root} do
-    data = Lucidex.icon_data_path()
+    data = Iconex.icon_data_path()
     {:ok, %File.Stat{mtime: mtime}} = File.stat(data, time: :posix)
     on_exit(fn -> File.touch!(data, mtime) end)
 
     in_fixture(root, fn ->
-      Application.put_env(:lucidex, :extra_icons, ["house"])
+      Application.put_env(:iconex, :extra_icons, ["house"])
       assert {:ok, []} = run()
 
       File.write!(sprite(), "<svg>stale</svg>")
@@ -158,7 +158,7 @@ defmodule Mix.Tasks.Compile.LucidexTest do
       compile!(
         ~S|defmodule Fixture.NoDebug do
           use Phoenix.Component
-          def a(assigns), do: ~H[<Lucidex.icon name="house" />]
+          def a(assigns), do: ~H[<Iconex.icon name="house" />]
         end|,
         "nofile",
         false
@@ -172,8 +172,8 @@ defmodule Mix.Tasks.Compile.LucidexTest do
 
   test "writes to :output_path", %{root: root} do
     in_fixture(root, fn ->
-      Application.put_env(:lucidex, :extra_icons, ["house"])
-      Application.put_env(:lucidex, :output_path, "priv/static/icons/sprite.svg")
+      Application.put_env(:iconex, :extra_icons, ["house"])
+      Application.put_env(:iconex, :output_path, "priv/static/icons/sprite.svg")
 
       assert {:ok, []} = run()
       assert symbols(Path.expand("priv/static/icons/sprite.svg")) == ["house"]
@@ -181,14 +181,14 @@ defmodule Mix.Tasks.Compile.LucidexTest do
   end
 
   test "refuses to run before the Elixir compiler", %{root: root} do
-    in_fixture(root, [compilers: [:lucidex, :elixir, :app]], fn ->
+    in_fixture(root, [compilers: [:iconex, :elixir, :app]], fn ->
       assert {:error, [diagnostic]} = run()
       assert diagnostic.message =~ "must run after :elixir"
     end)
   end
 
   defp in_fixture(root, opts \\ [], fun) do
-    compilers = Keyword.get(opts, :compilers, [:elixir, :app, :lucidex])
+    compilers = Keyword.get(opts, :compilers, [:elixir, :app, :iconex])
     name = :"fixture#{System.unique_integer([:positive])}"
     module = Module.concat(["Fixture#{System.unique_integer([:positive])}", MixProject])
 
@@ -231,7 +231,7 @@ defmodule Mix.Tasks.Compile.LucidexTest do
 
   defp beam(module), do: Path.join(Mix.Project.compile_path(), "#{module}.beam")
 
-  defp sprite, do: Path.expand("priv/static/images/lucide.svg")
+  defp sprite, do: Path.expand("priv/static/images/iconex.svg")
 
   # Diagnostics are printed to stderr as well as returned.
   defp run do

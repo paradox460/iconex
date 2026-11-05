@@ -20,8 +20,8 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-lucidex-*.tar
+iconex-*.tar
 
 
-# Lucide icon data: downloaded by `mix lucidex.download`, bundled only in the Hex package.
+# Lucide icon data: downloaded by `mix iconex.download`, bundled only in the Hex package.
 /priv/icon-nodes.json

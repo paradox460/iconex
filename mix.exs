@@ -1,21 +1,21 @@
-defmodule Lucidex.MixProject do
+defmodule Iconex.MixProject do
   use Mix.Project
 
-  @source "https://github.com/paradox460/lucidex"
+  @source "https://github.com/paradox460/iconex"
   # Lucide release bundled into the Hex package. priv/icon-nodes.json is not
   # in git; the hex.build/hex.publish aliases download this version first.
   @lucide_version "1.47.0"
 
   def project do
     [
-      app: :lucidex,
-      version: "0.2.0",
+      app: :iconex,
+      version: "0.1.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Lucide Icons as SVG sprites, with tree-shaking",
       package: package(),
-      docs: [main: "Lucidex", source_url: @source],
+      docs: [main: "Iconex", source_url: @source],
       aliases: aliases()
     ]
   end
@@ -23,7 +23,7 @@ defmodule Lucidex.MixProject do
   defp aliases do
     # A separate VM: compiling in-process (needed to load the task) breaks
     # Hex's module loading for the hex.build/hex.publish that follows.
-    fetch = "cmd mix lucidex.download --version #{@lucide_version}"
+    fetch = "cmd mix iconex.download --version #{@lucide_version}"
     ["hex.build": [fetch, "hex.build"], "hex.publish": [fetch, "hex.publish"]]
   end
 

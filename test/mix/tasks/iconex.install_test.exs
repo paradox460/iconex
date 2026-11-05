@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.Lucidex.InstallTest do
+defmodule Mix.Tasks.Iconex.InstallTest do
   use ExUnit.Case, async: true
 
   import Igniter.Test
@@ -42,7 +42,7 @@ defmodule Mix.Tasks.Lucidex.InstallTest do
     test_project(app_name: :my_app, files: files)
   end
 
-  defp install(igniter), do: Igniter.compose_task(igniter, "lucidex.install", [])
+  defp install(igniter), do: Igniter.compose_task(igniter, "iconex.install", [])
 
   defp mix_exs(compilers_line) do
     """
@@ -69,20 +69,20 @@ defmodule Mix.Tasks.Lucidex.InstallTest do
     |> install()
     |> assert_has_patch("mix.exs", """
     - |      compilers: [:phoenix_live_view] ++ Mix.compilers(),
-    + |      compilers: [:phoenix_live_view] ++ Mix.compilers() ++ [:lucidex],
+    + |      compilers: [:phoenix_live_view] ++ Mix.compilers() ++ [:iconex],
     """)
     |> assert_has_patch(@layout, """
       |  <body>
-    + |    <%= Lucidex.sprite_tag() %>
+    + |    <%= Iconex.sprite_tag() %>
       |    {@inner_content}
     """)
     |> assert_creates("config/dev.exs", fn contents ->
-      assert contents =~ "config :lucidex"
+      assert contents =~ "config :iconex"
       assert contents =~ "delivery: :inline"
       assert contents =~ "otp_app: :my_app"
     end)
     |> assert_has_patch(".gitignore", """
-    + |/priv/static/images/lucide.svg
+    + |/priv/static/images/iconex.svg
     """)
   end
 
@@ -90,7 +90,7 @@ defmodule Mix.Tasks.Lucidex.InstallTest do
     project(%{"mix.exs" => mix_exs("")})
     |> install()
     |> assert_has_patch("mix.exs", """
-    + |      compilers: Mix.compilers() ++ [:lucidex]
+    + |      compilers: Mix.compilers() ++ [:iconex]
     """)
   end
 
@@ -98,7 +98,7 @@ defmodule Mix.Tasks.Lucidex.InstallTest do
     project(%{"mix.exs" => mix_exs("\n      compilers: [:elixir, :app],")})
     |> install()
     |> assert_has_patch("mix.exs", """
-    + |      compilers: [:elixir, :app, :lucidex],
+    + |      compilers: [:elixir, :app, :iconex],
     """)
   end
 
@@ -113,15 +113,15 @@ defmodule Mix.Tasks.Lucidex.InstallTest do
   test "warns and continues when the root layout is missing" do
     project(%{@layout => nil})
     |> install()
-    |> assert_has_warning(&(&1 =~ "Lucidex.sprite_tag()"))
+    |> assert_has_warning(&(&1 =~ "Iconex.sprite_tag()"))
     |> assert_has_patch("mix.exs", """
-    + |      compilers: [:phoenix_live_view] ++ Mix.compilers() ++ [:lucidex],
+    + |      compilers: [:phoenix_live_view] ++ Mix.compilers() ++ [:iconex],
     """)
   end
 
   test "keeps existing delivery config" do
     igniter =
-      project(%{"config/dev.exs" => "import Config\nconfig :lucidex, delivery: :external\n"})
+      project(%{"config/dev.exs" => "import Config\nconfig :iconex, delivery: :external\n"})
       |> install()
       |> apply_igniter!()
 

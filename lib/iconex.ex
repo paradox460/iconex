@@ -1,4 +1,4 @@
-defmodule Lucidex do
+defmodule Iconex do
   @moduledoc """
   Auto tree-shaken Lucide icons for Phoenix.
 
@@ -6,18 +6,18 @@ defmodule Lucidex do
 
   In any template:
 
-      <Lucidex.icon name="house" class="w-5 h-5" />
-      <Lucidex.icon name="circle" size={20} />
+      <Iconex.icon name="house" class="w-5 h-5" />
+      <Iconex.icon name="circle" size={20} />
 
-  `import Lucidex` lets you write `<.icon name="house" />` instead.
+  `import Iconex` lets you write `<.icon name="house" />` instead.
 
   ## How it works
 
-  `Mix.Tasks.Compile.Lucidex` reads your compiled modules after each build
-  and writes a pruned `priv/static/images/lucide.svg` containing only the
+  `Mix.Tasks.Compile.Iconex` reads your compiled modules after each build
+  and writes a pruned `priv/static/images/iconex.svg` containing only the
   icons used. Register it after the default compilers in `mix.exs`:
 
-      compilers: Mix.compilers() ++ [:lucidex]
+      compilers: Mix.compilers() ++ [:iconex]
 
 
   Icons are rendered using [svg
@@ -25,29 +25,29 @@ defmodule Lucidex do
   `<use>` references.
 
   Icon names are validated against the bundled `priv/icon-nodes.json`;
-  run `mix lucidex.download` to use a newer Lucide release.
+  run `mix iconex.download` to use a newer Lucide release.
 
   In the case of icon names that are dynamically called at runtime, such as a
   conditional switching between two icons, you must _hint_ the compiler, so it
-  emits both icons. See `lucidex_hint/1` for details.
+  emits both icons. See `hint/1` for details.
 
   ## Root layout setup
 
-  Place `Lucidex.sprite_tag/0` once at the top of `<body>`:
+  Place `Iconex.sprite_tag/0` once at the top of `<body>`:
 
       # root.html.heex
-      <%= Lucidex.sprite_tag() %>
+      <%= Iconex.sprite_tag() %>
 
   ## Delivery modes
 
   The default delivery is `:external`: `sprite_tag/0` emits nothing and icons
-  reference `/images/lucide.svg`, which the browser fetches and caches once.
+  reference `/images/iconex.svg`, which the browser fetches and caches once.
 
   For development you can embed the sprite in the page instead, so no static
   file needs serving:
 
       # config/dev.exs
-      config :lucidex, delivery: :inline, otp_app: :my_app
+      config :iconex, delivery: :inline, otp_app: :my_app
 
   This has added advantage that hot reloads can render new sprites without
   additional network requests.
@@ -57,14 +57,14 @@ defmodule Lucidex do
   Without `:otp_app` it embeds every icon.
 
   `:delivery`, `:sprite_url`, `:stroke_width` and `:icon_nodes_path` are read at
-  compile time, so run `mix deps.compile lucidex --force` after changing them.
+  compile time, so run `mix deps.compile iconex --force` after changing them.
 
   ## Stroke width
 
   Every icon is drawn at stroke width `2`, Lucide's own, unless the `stroke_width`
   attribute says otherwise. Set an app-wide default with:
 
-      config :lucidex, stroke_width: 1.5
+      config :iconex, stroke_width: 1.5
 
   The width is in the 24-unit viewBox, so it scales with the icon.
 
@@ -75,34 +75,34 @@ defmodule Lucidex do
   If you serve static files from elsewhere, set both the file location and the
   URL it is served at:
 
-      config :lucidex,
-        output_path: "priv/static/assets/lucide.svg",
-        sprite_url: "/assets/lucide.svg"
+      config :iconex,
+        output_path: "priv/static/assets/iconex.svg",
+        sprite_url: "/assets/iconex.svg"
 
   ## Icon data
 
-  `mix lucidex.download` fetches Lucide's `icon-nodes.json`. To use a copy
-  newer than the one bundled with lucidex, point `:icon_nodes_path` at it
+  `mix iconex.download` fetches Lucide's `icon-nodes.json`. To use a copy
+  newer than the one bundled with iconex, point `:icon_nodes_path` at it
   (the path must be absolute):
 
-      config :lucidex, icon_nodes_path: Path.expand("../priv/lucidex/icon-nodes.json", __DIR__)
+      config :iconex, icon_nodes_path: Path.expand("../priv/iconex/icon-nodes.json", __DIR__)
   """
 
   use Phoenix.Component
 
   # Compile-time: load the full icon map so every icon works in dev/test.
   # @external_resource tells Mix to recompile this module when the file changes.
-  # Hosts may point at their own downloaded copy (see `mix lucidex.download`);
-  # the path must be absolute because deps compile with cwd = deps/lucidex.
-  @icon_data_path (case Application.compile_env(:lucidex, :icon_nodes_path) do
+  # Hosts may point at their own downloaded copy (see `mix iconex.download`);
+  # the path must be absolute because deps compile with cwd = deps/iconex.
+  @icon_data_path (case Application.compile_env(:iconex, :icon_nodes_path) do
                      nil ->
-                       Application.app_dir(:lucidex, "priv/icon-nodes.json")
+                       Application.app_dir(:iconex, "priv/icon-nodes.json")
 
                      path when is_binary(path) ->
                        Path.type(path) == :absolute ||
                          raise ArgumentError,
-                               "config :lucidex, :icon_nodes_path must be an absolute path, got: #{inspect(path)}. " <>
-                                 ~s|Use Path.expand("../priv/lucidex/icon-nodes.json", __DIR__) in config/config.exs.|
+                               "config :iconex, :icon_nodes_path must be an absolute path, got: #{inspect(path)}. " <>
+                                 ~s|Use Path.expand("../priv/iconex/icon-nodes.json", __DIR__) in config/config.exs.|
 
                        path
                    end)
@@ -111,8 +111,8 @@ defmodule Lucidex do
                 @icon_data_path |> File.read!() |> JSON.decode!()
               else
                 IO.warn(
-                  "Lucidex: icon data not found at #{@icon_data_path}; no icons are available. " <>
-                    "Run `mix lucidex.download`.",
+                  "Iconex: icon data not found at #{@icon_data_path}; no icons are available. " <>
+                    "Run `mix iconex.download`.",
                   []
                 )
 
@@ -123,18 +123,18 @@ defmodule Lucidex do
   def icon_data_path, do: @icon_data_path
 
   # Compile-time delivery mode. Defaults to :external; opt into :inline per env.
-  @delivery Application.compile_env(:lucidex, :delivery, :external)
+  @delivery Application.compile_env(:iconex, :delivery, :external)
 
   unless @delivery in [:inline, :external] do
     raise ArgumentError,
-          "config :lucidex, :delivery must be :inline or :external, got: #{inspect(@delivery)}"
+          "config :iconex, :delivery must be :inline or :external, got: #{inspect(@delivery)}"
   end
 
-  @stroke_width Application.compile_env(:lucidex, :stroke_width, 2)
+  @stroke_width Application.compile_env(:iconex, :stroke_width, 2)
 
   unless is_number(@stroke_width) and @stroke_width > 0 do
     raise ArgumentError,
-          "config :lucidex, :stroke_width must be a positive number, got: #{inspect(@stroke_width)}"
+          "config :iconex, :stroke_width must be a positive number, got: #{inspect(@stroke_width)}"
   end
 
   @doc """
@@ -146,13 +146,13 @@ defmodule Lucidex do
   * `size` integer pixel size applied to `width` and `height` (default `24`)
   * `class` CSS class string
   * `stroke_width` stroke width, any positive number (default `2`, or
-    `config :lucidex, :stroke_width`)
+    `config :iconex, :stroke_width`)
   * Any other attribute is forwarded to the outer `<svg>` element.
 
   ## Examples
 
-      <Lucidex.icon name="house" />
-      <Lucidex.icon name="loader" class="loading-icon" size={20} />
+      <Iconex.icon name="house" />
+      <Iconex.icon name="loader" class="loading-icon" size={20} />
   """
   attr :name, :string, required: true
   attr :size, :integer, default: 24
@@ -164,7 +164,7 @@ defmodule Lucidex do
     # Name validation, to make debugging easier.
     unless Map.has_key?(@all_icons, name) do
       raise ArgumentError,
-            "Lucidex: unknown icon #{inspect(name)}. " <>
+            "Iconex: unknown icon #{inspect(name)}. " <>
               "Check the spelling against https://lucide.dev/icons/ ."
     end
 
@@ -193,12 +193,12 @@ defmodule Lucidex do
   Use it for names only known at runtime, next to the code that picks them:
 
       icon = if @open, do: "chevron-up", else: "chevron-down"
-      Lucidex.lucidex_hint(~w[chevron-up chevron-down])
+      Iconex.hint(~w[chevron-up chevron-down])
 
   The compiler counts the literal strings in the list, so `~w[...]` works
   and names built at runtime don't. Returns the list unchanged.
   """
-  def lucidex_hint(names) when is_list(names), do: names
+  def hint(names) when is_list(names), do: names
 
   @doc """
   Emits the SVG sprite element to be placed once in your root layout.
@@ -206,7 +206,7 @@ defmodule Lucidex do
   In `:inline` delivery mode this embeds the sprite as a hidden `<svg>` block
   so that `<use href="#lucide-...">` fragment references resolve without an
   extra HTTP request. The sprite is read from
-  `priv/static/images/lucide.svg` of the app configured as `:otp_app`, and
+  `priv/static/images/iconex.svg` of the app configured as `:otp_app`, and
   re-read whenever that file changes. Without `:otp_app`, or before the
   compiler has written the file, every icon is embedded.
 
@@ -216,7 +216,7 @@ defmodule Lucidex do
   Place this at the very top of `<body>` in `root.html.heex`:
 
       <body>
-        <%= Lucidex.sprite_tag() %>
+        <%= Iconex.sprite_tag() %>
         ...
       </body>
   """
@@ -228,7 +228,7 @@ defmodule Lucidex do
 
   # Decided at compile time, so there's zero branching at runtime.
   if @delivery == :external do
-    @sprite_url Application.compile_env(:lucidex, :sprite_url, "/images/lucide.svg")
+    @sprite_url Application.compile_env(:iconex, :sprite_url, "/images/iconex.svg")
     defp icon_href(name), do: "#{@sprite_url}#lucide-#{name}"
   else
     defp icon_href(name), do: "#lucide-#{name}"
@@ -242,8 +242,8 @@ defmodule Lucidex do
   # (mtime alone has one-second granularity).
   @doc false
   def inline_sprite do
-    with app when not is_nil(app) <- Application.get_env(:lucidex, :otp_app),
-         output = Application.get_env(:lucidex, :output_path, "priv/static/images/lucide.svg"),
+    with app when not is_nil(app) <- Application.get_env(:iconex, :otp_app),
+         output = Application.get_env(:iconex, :output_path, "priv/static/images/iconex.svg"),
          path = Path.expand(output, Application.app_dir(app)),
          {:ok, %File.Stat{mtime: mtime, size: size}} <- File.stat(path, time: :posix) do
       cached({path, mtime, size}, fn -> File.read!(path) end)
