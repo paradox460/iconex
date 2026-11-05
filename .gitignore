@@ -23,5 +23,5 @@ erl_crash.dump
 iconex-*.tar
 
 
-# Lucide icon data: downloaded by `mix iconex.download`, bundled only in the Hex package.
-/priv/icon-nodes.json
+# Icon set data: downloaded by `mix iconex.download SET`, bundled only in the Hex package.
+/priv/sets/

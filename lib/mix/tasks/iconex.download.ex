@@ -1,24 +1,26 @@
 defmodule Mix.Tasks.Iconex.Download do
   @moduledoc """
-  Downloads Lucide's `icon-nodes.json` from the `lucide-static` npm package.
+  Downloads an icon set's data from npm and writes it in iconex's format.
 
-      mix iconex.download [--version VERSION] [--output PATH]
+      mix iconex.download SET [--version VERSION] [--output PATH]
+
+  `SET` is one of the ids in `Iconex.Set.ids/0`, such as `lucide`.
 
   ## Options
 
-    * `--version` - the `lucide-static` version to fetch. Defaults to the
-      latest version published on npm.
-    * `--output` - where to write the file. Defaults to
-      `priv/icon-nodes.json` inside the iconex repository, or, in a host
-      application, to `config :iconex, :icon_nodes_path` when set and
-      `priv/iconex/icon-nodes.json` otherwise.
+    * `--version` - the version of the set's npm package to fetch (see
+      `Iconex.Set`). Defaults to the latest version published on npm.
+    * `--output` - where to write the file. Defaults to `priv/sets/SET.json`
+      inside the iconex repository, or, in a host application, to
+      `config :iconex, SET: [data_path: ...]` when set and
+      `priv/iconex/SET.json` otherwise.
 
   ## Using newer icons in a host application
 
   Point iconex at the downloaded file in `config/config.exs` (the path must
   be absolute):
 
-      config :iconex, icon_nodes_path: Path.expand("../priv/iconex/icon-nodes.json", __DIR__)
+      config :iconex, lucide: [data_path: Path.expand("../priv/iconex/lucide.json", __DIR__)]
 
   then recompile the dependency with `mix deps.compile iconex --force`. Once
   the config is in place, this task recompiles iconex automatically after each
@@ -27,55 +29,71 @@ defmodule Mix.Tasks.Iconex.Download do
 
   use Mix.Task
 
-  @shortdoc "Downloads Lucide icon-nodes.json"
+  @shortdoc "Downloads an icon set's data"
   @requirements []
-
-  @latest_url "https://registry.npmjs.org/lucide-static/latest"
 
   @impl true
   def run(args) do
-    opts = OptionParser.parse!(args, strict: [version: :string, output: :string]) |> elem(0)
+    {opts, positional} = OptionParser.parse!(args, strict: [version: :string, output: :string])
+    set = parse_set(positional)
+    mod = Iconex.Set.module!(set)
     maintainer? = Mix.Project.config()[:app] == :iconex
 
-    version = opts[:version] || latest_version()
-    out = output_path(opts[:output], maintainer?)
-
-    url = "https://cdn.jsdelivr.net/npm/lucide-static@#{version}/icon-nodes.json"
+    version = opts[:version] || latest_version(mod.npm_package())
+    out = output_path(set, opts[:output], maintainer?)
+    url = mod.data_url(version)
 
     body =
-      case fetch(url, 60_000) do
+      case fetch(url, 120_000) do
         {:ok, body} -> body
         other -> Mix.raise("Iconex: failed to download #{url}: #{inspect(other)}")
       end
 
     icons =
-      case JSON.decode(body) do
-        {:ok, %{} = map} when map_size(map) > 0 ->
-          if Enum.all?(map, fn {_name, nodes} -> is_list(nodes) end), do: map, else: invalid!()
-
-        _ ->
-          invalid!()
+      with {:ok, decoded} <- JSON.decode(body),
+           {:ok, icons} <- mod.normalize(decoded) do
+        icons
+      else
+        _ -> Mix.raise("Iconex: downloaded #{set} data is not valid")
       end
 
     tmp = out <> ".tmp"
     File.mkdir_p!(Path.dirname(out))
-    File.write!(tmp, body)
+
+    File.write!(
+      tmp,
+      JSON.encode!(%{"set" => to_string(set), "version" => version, "icons" => icons})
+    )
+
     File.rename!(tmp, out)
 
     Mix.shell().info(
-      "Iconex: downloaded lucide-static #{version} (#{map_size(icons)} icons) to #{Path.relative_to_cwd(out)}"
+      "Iconex: downloaded #{mod.npm_package()} #{version} (#{map_size(icons)} icons) to #{Path.relative_to_cwd(out)}"
     )
 
-    unless maintainer?, do: host_follow_up(out)
+    unless maintainer?, do: host_follow_up(set, out)
   end
 
-  defp latest_version do
-    with {:ok, body} <- fetch(@latest_url, 30_000),
+  defp parse_set([name]) do
+    Enum.find(Iconex.Set.ids(), &(Atom.to_string(&1) == name)) || usage!()
+  end
+
+  defp parse_set(_), do: usage!()
+
+  defp usage! do
+    Mix.raise(
+      "Usage: mix iconex.download SET [--version VERSION] [--output PATH], where SET is one of: " <>
+        Enum.join(Iconex.Set.ids(), ", ")
+    )
+  end
+
+  defp latest_version(package) do
+    with {:ok, body} <- fetch("https://registry.npmjs.org/#{package}/latest", 30_000),
          {:ok, %{"version" => version}} when is_binary(version) <- JSON.decode(body) do
       version
     else
       reason ->
-        Mix.raise("Iconex: could not resolve latest lucide-static version: #{inspect(reason)}")
+        Mix.raise("Iconex: could not resolve latest #{package} version: #{inspect(reason)}")
     end
   end
 
@@ -84,28 +102,30 @@ defmodule Mix.Tasks.Iconex.Download do
   # and the payload is validated before anything is written.
   defp fetch(url, timeout), do: Mix.Utils.read_path(url, timeout: timeout, unsafe_uri: true)
 
-  defp output_path(output, _maintainer?) when is_binary(output), do: Path.expand(output)
-  defp output_path(nil, true), do: Path.expand("priv/icon-nodes.json")
+  defp output_path(_set, output, _maintainer?) when is_binary(output), do: Path.expand(output)
+  defp output_path(set, nil, true), do: Path.expand("priv/sets/#{set}.json")
 
-  defp output_path(nil, false) do
-    case Application.get_env(:iconex, :icon_nodes_path) do
+  defp output_path(set, nil, false) do
+    case configured_path(set) do
       nil ->
-        Path.expand("priv/iconex/icon-nodes.json")
+        Path.expand("priv/iconex/#{set}.json")
 
       path when is_binary(path) ->
         if Path.type(path) == :absolute do
           path
         else
           Mix.raise(
-            "config :iconex, :icon_nodes_path must be an absolute path, got: #{inspect(path)}. " <>
-              ~s|Use Path.expand("../priv/iconex/icon-nodes.json", __DIR__) in config/config.exs.|
+            "config :iconex, #{set}: [data_path: ...] must be an absolute path, got: #{inspect(path)}. " <>
+              ~s|Use Path.expand("../priv/iconex/#{set}.json", __DIR__) in config/config.exs.|
           )
         end
     end
   end
 
-  defp host_follow_up(out) do
-    if Application.get_env(:iconex, :icon_nodes_path) == out do
+  defp configured_path(set), do: Application.get_env(:iconex, set, [])[:data_path]
+
+  defp host_follow_up(set, out) do
+    if configured_path(set) == out do
       # @external_resource is not watched for Hex deps, so force the recompile.
       # This must run in a fresh VM: Mix has already run `compile` for path deps
       # during this session, so an in-process `deps.compile --force` would wipe
@@ -120,11 +140,9 @@ defmodule Mix.Tasks.Iconex.Download do
     else
       Mix.shell().info("""
       Iconex: to use this file, add to config/config.exs:
-          config :iconex, icon_nodes_path: Path.expand("../#{Path.relative_to_cwd(out)}", __DIR__)
+          config :iconex, #{set}: [data_path: Path.expand("../#{Path.relative_to_cwd(out)}", __DIR__)]
       then run: mix deps.compile iconex --force\
       """)
     end
   end
-
-  defp invalid!, do: Mix.raise("Iconex: downloaded data is not a valid icon-nodes map")
 end

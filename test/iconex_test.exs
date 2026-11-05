@@ -19,42 +19,42 @@ defmodule IconexTest do
     end
 
     test "renders every icon in the bundled dataset" do
-      all = Iconex.icon_data_path() |> File.read!() |> JSON.decode!()
-      svg = Iconex.build_sprite(Map.keys(all), all)
+      {:ok, all} = Iconex.Set.read(Iconex.data_path(:lucide))
+      svg = Iconex.build_sprite(for(name <- Map.keys(all), do: {:lucide, name}), %{lucide: all})
       assert svg =~ ~s(id="lucide-house")
     end
   end
 
   describe "build_sprite/2" do
     test "includes only requested, known icons" do
-      all = %{"a" => [["path", %{"d" => "A"}]], "b" => [["path", %{"d" => "B"}]]}
-      svg = Iconex.build_sprite(["b", "missing"], all)
+      all = %{lucide: %{"a" => lucide_icon("A"), "b" => lucide_icon("B")}}
+      svg = Iconex.build_sprite([{:lucide, "b"}, {:lucide, "missing"}], all)
 
       assert svg =~ ~s(id="lucide-b")
       refute svg =~ ~s(id="lucide-a")
       refute svg =~ "missing"
     end
 
-    # A width on the <symbol> would override the one `icon/1` sets on the outer <svg>.
+    # A width on the <symbol> would override the one `lucide/1` sets on the outer <svg>.
     test "leaves the stroke width to the referencing icon" do
-      svg = Iconex.build_sprite(["a"], %{"a" => [["path", %{"d" => "A"}]]})
+      svg = Iconex.build_sprite([{:lucide, "a"}], %{lucide: %{"a" => lucide_icon("A")}})
 
       refute svg =~ "stroke-width"
     end
   end
 
-  describe "icon/1 with the default :external delivery" do
+  describe "lucide/1 with the default :external delivery" do
     test "references the external sprite" do
-      html = render_component(&Iconex.icon/1, name: "house", size: 16, class: "w-4")
+      html = render_component(&Iconex.lucide/1, name: "house", size: 16, class: "w-4")
 
       assert html =~ ~s(href="/images/iconex.svg#lucide-house")
       assert html =~ ~s(width="16")
-      assert html =~ ~s(class="lucide-icon w-4")
+      assert html =~ ~s(class="iconex iconex-lucide w-4")
     end
 
     test "raises on an unknown icon name" do
-      assert_raise ArgumentError, ~r/unknown icon "nope-not-real"/, fn ->
-        render_component(&Iconex.icon/1, name: "nope-not-real")
+      assert_raise ArgumentError, ~r/unknown lucide icon "nope-not-real"/, fn ->
+        render_component(&Iconex.lucide/1, name: "nope-not-real")
       end
     end
 
@@ -98,4 +98,6 @@ defmodule IconexTest do
       assert Iconex.inline_sprite() == "<svg>second</svg>"
     end
   end
+
+  defp lucide_icon(d), do: %{"viewBox" => "0 0 24 24", "nodes" => [["path", %{"d" => d}]]}
 end

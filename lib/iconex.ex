@@ -1,35 +1,49 @@
 defmodule Iconex do
   @moduledoc """
-  Auto tree-shaken Lucide icons for Phoenix.
+  Auto tree-shaken icons for Phoenix, from several icon sets.
 
   ## Usage
 
-  In any template:
+  Each icon set has its own component:
 
-      <Iconex.icon name="house" class="w-5 h-5" />
-      <Iconex.icon name="circle" size={20} />
+      <Iconex.lucide name="house" class="w-5 h-5" />
+      <Iconex.lucide name="circle" size={20} />
 
-  `import Iconex` lets you write `<.icon name="house" />` instead.
+  `import Iconex` lets you write `<.lucide name="house" />` instead.
+
+  ## Icon sets
+
+  | Set | Component | Names |
+  |-----|-----------|-------|
+  | [Lucide](https://lucide.dev/icons/) | `lucide/1` | `"house"`, `"arrow-up-right"` |
+
+  Every set is enabled by default. To compile in only some of them:
+
+      # config/config.exs
+      config :iconex, sets: [:lucide]
+
+  The component of a disabled set is not defined, and the compiler reports
+  every call to it.
 
   ## How it works
 
   `Mix.Tasks.Compile.Iconex` reads your compiled modules after each build
   and writes a pruned `priv/static/images/iconex.svg` containing only the
-  icons used. Register it after the default compilers in `mix.exs`:
+  icons used, from every set. Register it after the default compilers in
+  `mix.exs`:
 
       compilers: Mix.compilers() ++ [:iconex]
 
-
   Icons are rendered using [svg
   sprites](https://css-tricks.com/svg-sprites-use-better-icon-fonts/) via
-  `<use>` references.
+  `<use>` references to symbols named `#<set>-<name>`, e.g. `#lucide-house`.
 
-  Icon names are validated against the bundled `priv/icon-nodes.json`;
-  run `mix iconex.download` to use a newer Lucide release.
+  Icon names are validated against the bundled data in `priv/sets/`; run
+  `mix iconex.download SET` to use a newer release of a set.
 
   In the case of icon names that are dynamically called at runtime, such as a
   conditional switching between two icons, you must _hint_ the compiler, so it
-  emits both icons. See `hint/1` for details.
+  emits both icons. See `hint/2` for details.
 
   ## Root layout setup
 
@@ -56,15 +70,23 @@ defmodule Iconex do
   (at `:output_path`) and re-reads it whenever the compiler rewrites it.
   Without `:otp_app` it embeds every icon.
 
-  `:delivery`, `:sprite_url`, `:stroke_width` and `:icon_nodes_path` are read at
-  compile time, so run `mix deps.compile iconex --force` after changing them.
+  `:sets`, `:delivery`, `:sprite_url`, and each set's `:data_path` (and
+  Lucide's `:stroke_width`) are read at compile time, so run
+  `mix deps.compile iconex --force` after changing them.
 
-  ## Stroke width
+  ## Per-set configuration
 
-  Every icon is drawn at stroke width `2`, Lucide's own, unless the `stroke_width`
-  attribute says otherwise. Set an app-wide default with:
+  Options that apply to one set live under its id:
 
-      config :iconex, stroke_width: 1.5
+      config :iconex,
+        lucide: [stroke_width: 1.5, extra_icons: ~w[loader]]
+
+  ## Lucide stroke width
+
+  Every Lucide icon is drawn at stroke width `2`, Lucide's own, unless the
+  `stroke_width` attribute says otherwise. Set an app-wide default with:
+
+      config :iconex, lucide: [stroke_width: 1.5]
 
   The width is in the 24-unit viewBox, so it scales with the icon.
 
@@ -81,46 +103,77 @@ defmodule Iconex do
 
   ## Icon data
 
-  `mix iconex.download` fetches Lucide's `icon-nodes.json`. To use a copy
-  newer than the one bundled with iconex, point `:icon_nodes_path` at it
-  (the path must be absolute):
+  `mix iconex.download SET` fetches a set's data. To use a copy newer than
+  the one bundled with iconex, point the set's `:data_path` at it (the path
+  must be absolute):
 
-      config :iconex, icon_nodes_path: Path.expand("../priv/iconex/icon-nodes.json", __DIR__)
+      config :iconex, lucide: [data_path: Path.expand("../priv/iconex/lucide.json", __DIR__)]
   """
 
   use Phoenix.Component
 
-  # Compile-time: load the full icon map so every icon works in dev/test.
-  # @external_resource tells Mix to recompile this module when the file changes.
-  # Hosts may point at their own downloaded copy (see `mix iconex.download`);
+  @sets Application.compile_env(:iconex, :sets, Iconex.Set.ids())
+
+  unless is_list(@sets) and @sets != [] and Enum.all?(@sets, &(&1 in Iconex.Set.ids())) do
+    raise ArgumentError,
+          "config :iconex, :sets must be a non-empty list of #{inspect(Iconex.Set.ids())}, got: #{inspect(@sets)}"
+  end
+
+  # Hosts may point a set at their own downloaded copy (see `mix iconex.download`);
   # the path must be absolute because deps compile with cwd = deps/iconex.
-  @icon_data_path (case Application.compile_env(:iconex, :icon_nodes_path) do
+  @data_paths (for set <- @sets, into: %{} do
+                 path =
+                   case Application.compile_env(:iconex, [set, :data_path]) do
                      nil ->
-                       Application.app_dir(:iconex, "priv/icon-nodes.json")
+                       Application.app_dir(:iconex, "priv/sets/#{set}.json")
 
                      path when is_binary(path) ->
                        Path.type(path) == :absolute ||
                          raise ArgumentError,
-                               "config :iconex, :icon_nodes_path must be an absolute path, got: #{inspect(path)}. " <>
-                                 ~s|Use Path.expand("../priv/iconex/icon-nodes.json", __DIR__) in config/config.exs.|
+                               "config :iconex, #{set}: [data_path: ...] must be an absolute path, got: #{inspect(path)}. " <>
+                                 ~s|Use Path.expand("../priv/iconex/#{set}.json", __DIR__) in config/config.exs.|
 
                        path
-                   end)
-  @external_resource @icon_data_path
-  @all_icons (if File.exists?(@icon_data_path) do
-                @icon_data_path |> File.read!() |> JSON.decode!()
+                   end
+
+                 {set, path}
+               end)
+
+  # Recompile this module when a data file changes.
+  for path <- Map.values(@data_paths), do: @external_resource(path)
+
+  # Compile-time: load every enabled set so every icon works in dev/test.
+  @icons (for {set, path} <- @data_paths, into: %{} do
+            icons =
+              if File.exists?(path) do
+                case Iconex.Set.read(path) do
+                  {:ok, icons} ->
+                    icons
+
+                  :error ->
+                    raise "Iconex: #{path} is not valid iconex icon data. Run `mix iconex.download #{set}`."
+                end
               else
                 IO.warn(
-                  "Iconex: icon data not found at #{@icon_data_path}; no icons are available. " <>
-                    "Run `mix iconex.download`.",
+                  "Iconex: #{set} icon data not found at #{path}; no #{set} icons are available. " <>
+                    "Run `mix iconex.download #{set}`.",
                   []
                 )
 
                 %{}
-              end)
+              end
+
+            {set, icons}
+          end)
 
   @doc false
-  def icon_data_path, do: @icon_data_path
+  def enabled_sets, do: @sets
+
+  @doc false
+  def data_path(set), do: Map.fetch!(@data_paths, set)
+
+  # One literal for the whole dataset, shared by every caller.
+  defp icons, do: @icons
 
   # Compile-time delivery mode. Defaults to :external; opt into :inline per env.
   @delivery Application.compile_env(:iconex, :delivery, :external)
@@ -130,75 +183,84 @@ defmodule Iconex do
           "config :iconex, :delivery must be :inline or :external, got: #{inspect(@delivery)}"
   end
 
-  @stroke_width Application.compile_env(:iconex, :stroke_width, 2)
+  if :lucide in @sets do
+    @lucide_stroke_width Application.compile_env(:iconex, [:lucide, :stroke_width], 2)
 
-  unless is_number(@stroke_width) and @stroke_width > 0 do
-    raise ArgumentError,
-          "config :iconex, :stroke_width must be a positive number, got: #{inspect(@stroke_width)}"
-  end
-
-  @doc """
-  Renders a Lucide icon.
-
-  ## Attributes
-
-  * `name` (required) kebab-case icon name, e.g. `"house"`, `"arrow-up-right"`
-  * `size` integer pixel size applied to `width` and `height` (default `24`)
-  * `class` CSS class string
-  * `stroke_width` stroke width, any positive number (default `2`, or
-    `config :iconex, :stroke_width`)
-  * Any other attribute is forwarded to the outer `<svg>` element.
-
-  ## Examples
-
-      <Iconex.icon name="house" />
-      <Iconex.icon name="loader" class="loading-icon" size={20} />
-  """
-  attr :name, :string, required: true
-  attr :size, :integer, default: 24
-  attr :class, :string, default: nil
-  attr :stroke_width, :any, default: @stroke_width
-  attr :rest, :global
-
-  def icon(%{name: name} = assigns) do
-    # Name validation, to make debugging easier.
-    unless Map.has_key?(@all_icons, name) do
+    unless is_number(@lucide_stroke_width) and @lucide_stroke_width > 0 do
       raise ArgumentError,
-            "Iconex: unknown icon #{inspect(name)}. " <>
-              "Check the spelling against https://lucide.dev/icons/ ."
+            "config :iconex, lucide: [stroke_width: ...] must be a positive number, got: #{inspect(@lucide_stroke_width)}"
     end
 
-    ~H"""
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={@size}
-      height={@size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width={@stroke_width}
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      class={["lucide-icon", @class]}
-      {@rest}
-    >
-      <use href={icon_href(@name)} />
-    </svg>
+    @doc """
+    Renders a [Lucide](https://lucide.dev/icons/) icon.
+
+    ## Attributes
+
+    * `name` (required) kebab-case icon name, e.g. `"house"`, `"arrow-up-right"`
+    * `size` integer pixel size applied to `width` and `height` (default `24`)
+    * `class` CSS class string, added after `iconex iconex-lucide`
+    * `stroke_width` stroke width, any positive number (default `2`, or
+      `config :iconex, lucide: [stroke_width: ...]`)
+    * Any other attribute is forwarded to the outer `<svg>` element.
+
+    ## Examples
+
+        <Iconex.lucide name="house" />
+        <Iconex.lucide name="loader" class="loading-icon" size={20} />
     """
+    attr :name, :string, required: true
+    attr :size, :integer, default: 24
+    attr :class, :string, default: nil
+    attr :stroke_width, :any, default: @lucide_stroke_width
+    attr :rest, :global
+
+    def lucide(%{name: name} = assigns) do
+      validate!(:lucide, name)
+
+      ~H"""
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={@size}
+        height={@size}
+        viewBox={viewbox(:lucide, @name)}
+        fill="none"
+        stroke="currentColor"
+        stroke-width={@stroke_width}
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class={["iconex", "iconex-lucide", @class]}
+        {@rest}
+      >
+        <use href={icon_href(:lucide, @name)} />
+      </svg>
+      """
+    end
   end
 
   @doc """
-  Marks icon names as used so the compiler includes them in the sprite.
+  Marks icon names of `set` as used so the compiler includes them in the sprite.
 
   Use it for names only known at runtime, next to the code that picks them:
 
       icon = if @open, do: "chevron-up", else: "chevron-down"
-      Iconex.hint(~w[chevron-up chevron-down])
+      Iconex.hint(:lucide, ~w[chevron-up chevron-down])
 
-  The compiler counts the literal strings in the list, so `~w[...]` works
-  and names built at runtime don't. Returns the list unchanged.
+  The compiler only counts calls whose set is a literal atom and whose names
+  are literal strings, so `~w[...]` works and names built at runtime don't.
+  Returns the list unchanged.
   """
-  def hint(names) when is_list(names), do: names
+  def hint(set, names) when is_atom(set) and is_list(names), do: names
+
+  # Name validation, to make debugging easier.
+  defp validate!(set, name) do
+    unless Map.has_key?(Map.fetch!(icons(), set), name) do
+      raise ArgumentError,
+            "Iconex: unknown #{set} icon #{inspect(name)}. " <>
+              "Check the spelling against #{Iconex.Set.module!(set).docs_url()} ."
+    end
+  end
+
+  defp viewbox(set, name), do: icons()[set][name]["viewBox"]
 
   @doc """
   Emits the SVG sprite element to be placed once in your root layout.
@@ -229,9 +291,9 @@ defmodule Iconex do
   # Decided at compile time, so there's zero branching at runtime.
   if @delivery == :external do
     @sprite_url Application.compile_env(:iconex, :sprite_url, "/images/iconex.svg")
-    defp icon_href(name), do: "#{@sprite_url}#lucide-#{name}"
+    defp icon_href(set, name), do: "#{@sprite_url}##{set}-#{name}"
   else
-    defp icon_href(name), do: "#lucide-#{name}"
+    defp icon_href(set, name), do: "##{set}-#{name}"
   end
 
   @sprite_key {__MODULE__, :inline_sprite}
@@ -248,7 +310,11 @@ defmodule Iconex do
          {:ok, %File.Stat{mtime: mtime, size: size}} <- File.stat(path, time: :posix) do
       cached({path, mtime, size}, fn -> File.read!(path) end)
     else
-      _ -> cached(:full, fn -> build_sprite(Map.keys(@all_icons), @all_icons) end)
+      _ ->
+        cached(:full, fn ->
+          all = icons()
+          build_sprite(for({set, icons} <- all, name <- Map.keys(icons), do: {set, name}), all)
+        end)
     end
   end
 
@@ -265,27 +331,29 @@ defmodule Iconex do
   end
 
   @doc false
-  def build_sprite(icon_names, all_icons) do
+  def build_sprite(refs, icons_by_set) do
     symbols =
-      icon_names
+      refs
       |> Enum.sort()
-      |> Enum.map_join("\n", fn name ->
-        case Map.fetch(all_icons, name) do
-          {:ok, nodes} ->
-            inner = render_nodes(nodes)
+      |> Enum.map_join("\n", fn {set, name} ->
+        case icons_by_set do
+          %{^set => %{^name => %{"viewBox" => viewbox, "nodes" => nodes}}} ->
+            # The set's attrs carry no stroke-width: a <symbol>'s presentation
+            # attributes bind the cloned content and would override the width
+            # the outer <svg> passes down, making `lucide/1`'s `stroke_width` a
+            # no-op.
+            attrs =
+              Enum.map_join(Iconex.Set.module!(set).symbol_attrs(), " ", fn {k, v} ->
+                ~s(#{escape(k)}="#{escape(v)}")
+              end)
 
-            # No stroke-width here: a <symbol>'s presentation attributes bind the
-            # cloned content and would override the width the outer <svg> passes
-            # down, making `icon/1`'s `stroke_width` a no-op.
             """
-              <symbol id="lucide-#{escape(name)}" viewBox="0 0 24 24"
-                      fill="none" stroke="currentColor"
-                      stroke-linecap="round" stroke-linejoin="round">
-                #{inner}
+              <symbol id="#{set}-#{escape(name)}" viewBox="#{escape(viewbox)}" #{attrs}>
+                #{render_nodes(nodes)}
               </symbol>
             """
 
-          :error ->
+          _ ->
             ""
         end
       end)

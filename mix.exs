@@ -2,9 +2,9 @@ defmodule Iconex.MixProject do
   use Mix.Project
 
   @source "https://github.com/paradox460/iconex"
-  # Lucide release bundled into the Hex package. priv/icon-nodes.json is not
-  # in git; the hex.build/hex.publish aliases download this version first.
-  @lucide_version "1.47.0"
+  # Icon set releases bundled into the Hex package. priv/sets/ is not in git;
+  # the hex.build/hex.publish aliases download these versions first.
+  @set_versions [lucide: "1.47.0"]
 
   def project do
     [
@@ -23,8 +23,8 @@ defmodule Iconex.MixProject do
   defp aliases do
     # A separate VM: compiling in-process (needed to load the task) breaks
     # Hex's module loading for the hex.build/hex.publish that follows.
-    fetch = "cmd mix iconex.download --version #{@lucide_version}"
-    ["hex.build": [fetch, "hex.build"], "hex.publish": [fetch, "hex.publish"]]
+    fetch = for {set, v} <- @set_versions, do: "cmd mix iconex.download #{set} --version #{v}"
+    ["hex.build": fetch ++ ["hex.build"], "hex.publish": fetch ++ ["hex.publish"]]
   end
 
   # Run "mix help compile.app" to learn about applications.
@@ -49,7 +49,7 @@ defmodule Iconex.MixProject do
       licenses: ["MIT"],
       links: %{"GitHub" => @source},
       # Make sure the vendored icon data ships with the package
-      files: ~w[lib priv/icon-nodes.json mix.exs README.md LICENSE]
+      files: ~w[lib priv/sets mix.exs README.md LICENSE]
     ]
   end
 end

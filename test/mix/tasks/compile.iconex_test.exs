@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Compile.IconexTest do
     on_exit(fn ->
       Mix.shell(Mix.Shell.IO)
 
-      for key <- [:extra_icons, :output_path],
+      for key <- [:lucide, :carbon, :output_path],
           do: Application.delete_env(:iconex, key)
 
       File.rm_rf!(root)
@@ -28,19 +28,27 @@ defmodule Mix.Tasks.Compile.IconexTest do
       compile!("""
       defmodule Fixture.Page do
         use Phoenix.Component
-        import Iconex, only: [icon: 1]
+        import Iconex, only: [lucide: 1]
         alias Iconex, as: L
 
-        def remote(assigns), do: ~H[<Iconex.icon name="house" />]
-        def imported(assigns), do: ~H[<.icon name={"zap"} class="x" />]
-        def aliased(assigns), do: ~H[<L.icon name="circle" />]
-        def dynamic(assigns), do: ~H[<Iconex.icon name={@icon} />]
-        def hinted, do: Iconex.hint(~w[chevron-up chevron-down])
+        def remote(assigns), do: ~H[<Iconex.lucide name="house" />]
+        def imported(assigns), do: ~H[<.lucide name={"zap"} class="x" />]
+        def aliased(assigns), do: ~H[<L.lucide name="circle" />]
+        def dynamic(assigns), do: ~H[<Iconex.lucide name={@icon} />]
+        def hinted, do: Iconex.hint(:lucide, ~w[chevron-up chevron-down])
       end
       """)
 
       assert {:ok, []} = run()
-      assert symbols() == ["chevron-down", "chevron-up", "circle", "house", "zap"]
+
+      assert symbols() ==
+               [
+                 "lucide-chevron-down",
+                 "lucide-chevron-up",
+                 "lucide-circle",
+                 "lucide-house",
+                 "lucide-zap"
+               ]
     end)
   end
 
@@ -57,19 +65,19 @@ defmodule Mix.Tasks.Compile.IconexTest do
         use Phoenix.Component
         import Fixture.CoreComponents
 
-        @moduledoc ~S(<Iconex.icon name="mail" />)
+        @moduledoc ~S(<Iconex.lucide name="mail" />)
         def page(assigns) do
           ~H\"\"\"
           <.icon name="hero-x-mark" />
           <input name="search" />
-          <Iconex.icon name="house" />
+          <Iconex.lucide name="house" />
           \"\"\"
         end
       end
       """)
 
       assert {:ok, []} = run()
-      assert symbols() == ["house"]
+      assert symbols() == ["lucide-house"]
     end)
   end
 
@@ -84,8 +92,8 @@ defmodule Mix.Tasks.Compile.IconexTest do
 
           def page(assigns) do
             ~H\"\"\"
-            <Iconex.icon name="house" />
-            <Iconex.icon name="hous" />
+            <Iconex.lucide name="house" />
+            <Iconex.lucide name="hous" />
             \"\"\"
           end
         end
@@ -94,7 +102,7 @@ defmodule Mix.Tasks.Compile.IconexTest do
       )
 
       assert {:error, [diagnostic]} = run()
-      assert diagnostic.message =~ ~s(unknown icon "hous")
+      assert diagnostic.message =~ ~s(unknown lucide icon "hous")
       assert diagnostic.file == file
       assert diagnostic.position == 7
       refute File.exists?(sprite())
@@ -103,10 +111,12 @@ defmodule Mix.Tasks.Compile.IconexTest do
 
   test "unknown names in :extra_icons fail the build", %{root: root} do
     in_fixture(root, fn ->
-      Application.put_env(:iconex, :extra_icons, ["zapp"])
+      Application.put_env(:iconex, :lucide, extra_icons: ["zapp"])
 
       assert {:error, [diagnostic]} = run()
-      assert diagnostic.message =~ ~s(unknown icon "zapp" in config :iconex, :extra_icons)
+
+      assert diagnostic.message =~
+               ~s(unknown lucide icon "zapp" in config :iconex, lucide: [extra_icons)
     end)
   end
 
@@ -114,21 +124,21 @@ defmodule Mix.Tasks.Compile.IconexTest do
     in_fixture(root, fn ->
       compile!(~S|defmodule Fixture.A do
         use Phoenix.Component
-        def a(assigns), do: ~H[<Iconex.icon name="house" />]
+        def a(assigns), do: ~H[<Iconex.lucide name="house" />]
       end|)
 
       compile!(~S|defmodule Fixture.B do
         use Phoenix.Component
-        def b(assigns), do: ~H[<Iconex.icon name="zap" />]
+        def b(assigns), do: ~H[<Iconex.lucide name="zap" />]
       end|)
 
       assert {:ok, []} = run()
-      assert symbols() == ["house", "zap"]
+      assert symbols() == ["lucide-house", "lucide-zap"]
       assert {:noop, []} = run()
 
       File.rm!(beam(Fixture.B))
       assert {:ok, []} = run()
-      assert symbols() == ["house"]
+      assert symbols() == ["lucide-house"]
 
       File.rm!(beam(Fixture.A))
       assert {:ok, []} = run()
@@ -137,19 +147,19 @@ defmodule Mix.Tasks.Compile.IconexTest do
   end
 
   test "rewrites the sprite when settings change though the icons do not", %{root: root} do
-    data = Iconex.icon_data_path()
+    data = Iconex.data_path(:lucide)
     {:ok, %File.Stat{mtime: mtime}} = File.stat(data, time: :posix)
     on_exit(fn -> File.touch!(data, mtime) end)
 
     in_fixture(root, fn ->
-      Application.put_env(:iconex, :extra_icons, ["house"])
+      Application.put_env(:iconex, :lucide, extra_icons: ["house"])
       assert {:ok, []} = run()
 
       File.write!(sprite(), "<svg>stale</svg>")
       File.touch!(data, mtime + 60)
 
       assert {:ok, []} = run()
-      assert symbols() == ["house"]
+      assert symbols() == ["lucide-house"]
     end)
   end
 
@@ -158,7 +168,7 @@ defmodule Mix.Tasks.Compile.IconexTest do
       compile!(
         ~S|defmodule Fixture.NoDebug do
           use Phoenix.Component
-          def a(assigns), do: ~H[<Iconex.icon name="house" />]
+          def a(assigns), do: ~H[<Iconex.lucide name="house" />]
         end|,
         "nofile",
         false
@@ -172,11 +182,11 @@ defmodule Mix.Tasks.Compile.IconexTest do
 
   test "writes to :output_path", %{root: root} do
     in_fixture(root, fn ->
-      Application.put_env(:iconex, :extra_icons, ["house"])
+      Application.put_env(:iconex, :lucide, extra_icons: ["house"])
       Application.put_env(:iconex, :output_path, "priv/static/icons/sprite.svg")
 
       assert {:ok, []} = run()
-      assert symbols(Path.expand("priv/static/icons/sprite.svg")) == ["house"]
+      assert symbols(Path.expand("priv/static/icons/sprite.svg")) == ["lucide-house"]
     end)
   end
 
@@ -242,7 +252,7 @@ defmodule Mix.Tasks.Compile.IconexTest do
   end
 
   defp symbols(path \\ sprite()) do
-    ~r/id="lucide-([^"]+)"/
+    ~r/id="((?:lucide|carbon)-[^"]+)"/
     |> Regex.scan(File.read!(path), capture: :all_but_first)
     |> List.flatten()
   end
