@@ -49,7 +49,7 @@ defmodule Iconex.Set do
   @callback docs_url() :: String.t()
 
   @doc "Known sets, keyed by id."
-  def modules, do: [lucide: Iconex.Set.Lucide]
+  def modules, do: [lucide: Iconex.Set.Lucide, carbon: Iconex.Set.Carbon]
 
   @doc "Known set ids."
   def ids, do: Keyword.keys(modules())

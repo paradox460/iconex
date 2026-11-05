@@ -109,6 +109,57 @@ defmodule Mix.Tasks.Compile.IconexTest do
     end)
   end
 
+  test "collects icons from every set into one sprite", %{root: root} do
+    in_fixture(root, fn ->
+      compile!("""
+      defmodule Fixture.Mixed do
+        use Phoenix.Component
+        import Iconex, only: [carbon: 1]
+
+        def page(assigns) do
+          ~H\"\"\"
+          <Iconex.lucide name="house" />
+          <Iconex.carbon name="add" />
+          <.carbon name="close" />
+          \"\"\"
+        end
+
+        def hinted, do: Iconex.hint(:carbon, ~w[checkmark])
+      end
+      """)
+
+      assert {:ok, []} = run()
+      assert symbols() == ["carbon-add", "carbon-checkmark", "carbon-close", "lucide-house"]
+    end)
+  end
+
+  test "unknown names fail per set", %{root: root} do
+    in_fixture(root, fn ->
+      file = Path.join(root, "lib/page.ex")
+
+      compile!(
+        """
+        defmodule Fixture.CarbonTypo do
+          use Phoenix.Component
+
+          def page(assigns) do
+            ~H\"\"\"
+            <Iconex.lucide name="house" />
+            <Iconex.carbon name="ad" />
+            \"\"\"
+          end
+        end
+        """,
+        file
+      )
+
+      assert {:error, [diagnostic]} = run()
+      assert diagnostic.message =~ ~s(unknown carbon icon "ad")
+      assert diagnostic.file == file
+      assert diagnostic.position == 7
+    end)
+  end
+
   test "unknown names in :extra_icons fail the build", %{root: root} do
     in_fixture(root, fn ->
       Application.put_env(:iconex, :lucide, extra_icons: ["zapp"])

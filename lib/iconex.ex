@@ -8,14 +8,18 @@ defmodule Iconex do
 
       <Iconex.lucide name="house" class="w-5 h-5" />
       <Iconex.lucide name="circle" size={20} />
+      <Iconex.carbon name="add" />
+      <Iconex.carbon name="arrow--right" size={20} />
 
-  `import Iconex` lets you write `<.lucide name="house" />` instead.
+  `import Iconex` lets you write `<.lucide name="house" />` and
+  `<.carbon name="add" />` instead.
 
   ## Icon sets
 
   | Set | Component | Names |
   |-----|-----------|-------|
   | [Lucide](https://lucide.dev/icons/) | `lucide/1` | `"house"`, `"arrow-up-right"` |
+  | [IBM Carbon](https://carbondesignsystem.com/elements/icons/library/) | `carbon/1` | `"add"`, `"arrow--right"`, `"logo--github"` |
 
   Every set is enabled by default. To compile in only some of them:
 
@@ -232,6 +236,50 @@ defmodule Iconex do
         {@rest}
       >
         <use href={icon_href(:lucide, @name)} />
+      </svg>
+      """
+    end
+  end
+
+  if :carbon in @sets do
+    @doc """
+    Renders an [IBM Carbon](https://carbondesignsystem.com/elements/icons/library/) icon.
+
+    Names are the `@carbon/icons` names, e.g. `"add"`, `"arrow--right"`,
+    `"logo--github"`, matched case-sensitively. The 32px master artwork is
+    used at every size.
+
+    ## Attributes
+
+    * `name` (required) Carbon icon name
+    * `size` integer pixel size applied to `width` and `height` (default `16`)
+    * `class` CSS class string, added after `iconex iconex-carbon`
+    * Any other attribute is forwarded to the outer `<svg>` element.
+
+    ## Examples
+
+        <Iconex.carbon name="add" />
+        <Iconex.carbon name="logo--github" class="text-gray-500" size={32} />
+    """
+    attr :name, :string, required: true
+    attr :size, :integer, default: 16
+    attr :class, :string, default: nil
+    attr :rest, :global
+
+    def carbon(%{name: name} = assigns) do
+      validate!(:carbon, name)
+
+      ~H"""
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={@size}
+        height={@size}
+        viewBox={viewbox(:carbon, @name)}
+        fill="currentColor"
+        class={["iconex", "iconex-carbon", @class]}
+        {@rest}
+      >
+        <use href={icon_href(:carbon, @name)} />
       </svg>
       """
     end

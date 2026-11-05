@@ -4,7 +4,7 @@ defmodule Iconex.MixProject do
   @source "https://github.com/paradox460/iconex"
   # Icon set releases bundled into the Hex package. priv/sets/ is not in git;
   # the hex.build/hex.publish aliases download these versions first.
-  @set_versions [lucide: "1.47.0"]
+  @set_versions [lucide: "1.47.0", carbon: "11.92.0"]
 
   def project do
     [

@@ -41,6 +41,22 @@ defmodule IconexTest do
 
       refute svg =~ "stroke-width"
     end
+
+    test "applies each set's presentation attributes to its symbols" do
+      all = %{
+        carbon: %{"a" => %{"viewBox" => "0 0 32 32", "nodes" => [["path", %{"d" => "A"}]]}},
+        lucide: %{"b" => lucide_icon("B")}
+      }
+
+      svg = Iconex.build_sprite([{:carbon, "a"}, {:lucide, "b"}], all)
+      [carbon] = Regex.run(~r/<symbol id="carbon-a"[^>]*>/, svg)
+      [lucide] = Regex.run(~r/<symbol id="lucide-b"[^>]*>/, svg)
+
+      assert carbon =~ ~s(viewBox="0 0 32 32")
+      assert carbon =~ ~s(fill="currentColor")
+      refute carbon =~ "stroke="
+      assert lucide =~ ~s(stroke="currentColor")
+    end
   end
 
   describe "lucide/1 with the default :external delivery" do
@@ -60,6 +76,27 @@ defmodule IconexTest do
 
     test "sprite_tag/0 emits nothing" do
       assert Iconex.sprite_tag() == {:safe, ""}
+    end
+  end
+
+  describe "carbon/1 with the default :external delivery" do
+    test "references the external sprite with the icon's viewBox" do
+      html = render_component(&Iconex.carbon/1, name: "add")
+
+      assert html =~ ~s(href="/images/iconex.svg#carbon-add")
+      assert html =~ ~s(viewBox="0 0 32 32")
+      assert html =~ ~s(width="16")
+      assert html =~ ~s(fill="currentColor")
+    end
+
+    test "uses the glyph viewBox for glyph-only icons" do
+      assert render_component(&Iconex.carbon/1, name: "caution") =~ ~s(viewBox="0 0 16 16")
+    end
+
+    test "raises on an unknown icon name" do
+      assert_raise ArgumentError, ~r/unknown carbon icon "nope"/, fn ->
+        render_component(&Iconex.carbon/1, name: "nope")
+      end
     end
   end
 
