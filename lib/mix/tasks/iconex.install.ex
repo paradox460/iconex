@@ -59,7 +59,7 @@ if Code.ensure_loaded?(Igniter) do
       |> configure_dev()
       |> ignore_sprite()
       |> Igniter.add_notice(
-        ~s(Iconex is installed. Use icons with <Iconex.icon name="house" />; misspelled names fail `mix compile`. Run `mix iconex.download` to fetch newer Lucide icons.)
+        ~s|Iconex is installed. Use icons with <Iconex.lucide name="house" /> or <Iconex.carbon name="add" />; misspelled names fail `mix compile`. Run `mix iconex.download lucide` (or carbon) to fetch newer icons.|
       )
     end
 

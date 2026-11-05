@@ -13,7 +13,7 @@ defmodule Iconex.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Lucide Icons as SVG sprites, with tree-shaking",
+      description: "Lucide and IBM Carbon icons for Phoenix as SVG sprites, with tree-shaking",
       package: package(),
       docs: [main: "Iconex", source_url: @source],
       aliases: aliases()
@@ -48,8 +48,8 @@ defmodule Iconex.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source},
-      # Make sure the vendored icon data ships with the package
-      files: ~w[lib priv/sets mix.exs README.md LICENSE]
+      # Make sure the vendored icon data and its licenses ship with the package
+      files: ~w[lib priv/sets licenses mix.exs README.md LICENSE]
     ]
   end
 end
